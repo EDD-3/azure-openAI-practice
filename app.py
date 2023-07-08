@@ -11,7 +11,7 @@ from langchain.schema import (
 import openai
 import os
 # Utilized to make a call on Azure endpoint
-from langchain.chat_models import AzureChatOpenAI
+#from langchain.chat_models import AzureChatOpenAI
 
 from langchain.experimental.plan_and_execute import PlanAndExecute, load_agent_executor, load_chat_planner
 
@@ -22,6 +22,9 @@ from langchain.utilities import BingSearchAPIWrapper
 from langchain.agents.tools import Tool
 
 from langchain.llms import AzureOpenAI
+
+import random
+from langchain.tools import tool
 
 
 # Using environment variables from our .env
@@ -50,28 +53,14 @@ llm = AzureOpenAI(model_name=OPENAI_COMPLETIONS_MODEL,
 
 llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
 
-# Defining tools for agent
-tools = [
-    Tool(
-        #Name of the tool
-        name="Search",
-        #Accepts function as an argument
-        func=search.run,
-
-        description="useful for when you need to answer questions about current events"
-
-    ),
-
-    Tool(
-
-        name="Calculator",
-
-        func=llm_math_chain.run,
-
-        description="useful for when you need to answer questions about math"
-
-    )
-]
+@tool
+def request_vacations(query: str) -> str:
+    '''útil para cuando ya recabaste todos los datos requeridos para una solicitud de vacaciones y necesitas verificar en el sistema si es aprobada o rechazada, SINTAXIS DE ENTRADA: RFC|||fecha_inicio_vacaciones|||fecha_fin_vacaciones'''
+    #The tool needs to accept a string value as query and return a string value
+    #We can also make use of a agent within the tool
+    eleccion = random.choice(['RECHAZADAS', 'APROBADAS'])
+    empleado,fecha_inicio, fecha_fin = query.split("|||")[:3]
+    return f'Las vacacions pare el empleado {empleado} fueron {eleccion} en las fechas: {fecha_inicio}-{fecha_fin}'
 
 memory = [
     SystemMessage(
@@ -83,16 +72,46 @@ memory = [
     HumanMessage(content='Quien fue el primer presidente de estados unidos')
 ]
 
+# Defining tools for agent
+tools = [
+    # Tool(
+    #     #Name of the tool
+    #     name="Search",
+    #     #Accepts function as an argument
+    #     func=search.run,
+
+    #     description="useful for when you need to answer questions about current events"
+
+    # ),
+
+    # Tool(
+
+    #     name="Calculator",
+
+    #     func=llm_math_chain.run,
+
+    #     description="useful for when you need to answer questions about math"
+
+    # ),
+    Tool(
+        name="RequestVacations",
+        func=request_vacations,
+        description="útil para cuando ya recabaste todos los datos requeridos para una solicitud de vacaciones y necesitas verificar en el sistema si es aprobada o rechazada, SINTAXIS DE ENTRADA: RFC|||fecha_inicio_vacaciones|||fecha_fin_vacaciones"
+    )
+]
+
+
 # Temperature manages the language complexity, randomness
 # Temperature goes from 0 to 1 is a float value
-model = AzureChatOpenAI(
-    deployment_name=OPENAI_CHAT_MODEL_NAME,
-    engine=OPENAI_CHAT_ENGINE_NAME,
-    temperature=0.0
-)
+# model = AzureChatOpenAI(
+#     deployment_name=OPENAI_CHAT_MODEL_NAME,
+#     engine=OPENAI_CHAT_ENGINE_NAME,
+#     temperature=0.0
+# )
 
-planner = load_chat_planner(model)
-executor = load_agent_executor(model, tools, verbose=True)
+#Use llm instead of model
+planner = load_chat_planner(llm)
+executor = load_agent_executor(llm, tools, verbose=True)
 agent = PlanAndExecute(planner=planner, executor=executor, verbose=True)
 
-agent.run('Who is the president of Mexico?')
+agent.run("Quiero vacaciones del 1 de julio de 2023 al 10 de julio de 2023, mi RFC es EFGR2334343")
